@@ -38,6 +38,9 @@ public class User {
     @ExcelProperty("member_level")
     private String member_level;
 
+    @ExcelProperty("推广人数")
+    private Integer promoteCount;
+
     @ExcelProperty("spread_uid")
     private Integer spread_uid;
 

@@ -42,7 +42,29 @@ public class YuTuYunApplication implements ApplicationRunner {
         login();
         queryPageNum();
         queryData();
+        handleData();
         outputExcel();
+    }
+
+    Integer findBottomReferrerCount(String userId) {
+        int count = 0;
+        //从用户ID入手，将当前用户ID作为推广人ID，查找他的下级用户
+        for (User subUser : userList) {
+            //下级用户ID
+            String subUserId = subUser.getUid();
+            //下级用户的推广人ID
+            String subUserPromoterId = String.valueOf(subUser.getSpread_uid());
+            if (ObjectUtil.equal(userId, subUserId)) {
+                //自己是不能作为自己的下级的，所以跳过
+                continue;
+            }
+            if (ObjectUtil.equals(userId, subUserPromoterId)) {
+                //找到一个下级用户，那么当前用户推广人数要加1，递归的方式找下级用户的下级用户
+                count = count + findBottomReferrerCount(subUserId) + 1;
+            }
+        }
+        //for循环执行结束，说明当前用户不存在下级用户了，或者说该递归路线走到头了，直接返回count就行
+        return count;
     }
 
     private void login() {
@@ -131,10 +153,9 @@ public class YuTuYunApplication implements ApplicationRunner {
         }
     }
 
-    private void outputExcel() {
-        log.info("开始输出Excel");
-        String yyyyMMddHHmmss = DateUtil.format(DateUtil.date(), "yyyyMMddHHmmss");
-        String file = ".\\钰兔云" + yyyyMMddHHmmss + ".xlsx";
+    private void handleData() {
+        log.info("开始处理查询的数据");
+        //拼接用户信息和推广人信息到同一个实体里
         for (User user : userList) {
             Spread spread = user.getSpread();
             if (ObjectUtil.isEmpty(spread)) {
@@ -194,6 +215,19 @@ public class YuTuYunApplication implements ApplicationRunner {
             user.setSecond_used_assign_num(spread.getUsed_assign_num());
             user.setSecond_subbranch_id(spread.getSubbranch_id());
         }
+        //计算每一个用户的推广人数
+        for (User user : userList) {
+            //用户ID
+            String userId = user.getUid();
+            //记录该用户的推广人数
+            user.setPromoteCount(findBottomReferrerCount(userId));
+        }
+    }
+
+    private void outputExcel() {
+        log.info("开始输出Excel");
+        String yyyyMMddHHmmss = DateUtil.format(DateUtil.date(), "yyyyMMddHHmmss");
+        String file = ".\\钰兔云" + yyyyMMddHHmmss + ".xlsx";
         ExcelWriter excelWriter = EasyExcel.write(file).registerConverter(new ListIntegerConverter()).registerWriteHandler(new LongestMatchColumnWidthStyleStrategy()).build();
         WriteSheet writeSheet;
         writeSheet = EasyExcel.writerSheet("用户信息").head(User.class).build();
