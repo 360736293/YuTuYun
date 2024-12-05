@@ -58,6 +58,10 @@
             <artifactId>easyexcel</artifactId>
             <version>3.1.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -67,7 +71,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>2.3.5.RELEASE</version>
                 <configuration>
-                    <mainClass>com.example.yutuyun.YuTuYunApplication</mainClass>
+                    <mainClass>com.example.YuTuYunApplication</mainClass>
                     <addResources>true</addResources>
                     <includeSystemScope>true</includeSystemScope>
                     <fork>true</fork>

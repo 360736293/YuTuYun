@@ -1,4 +1,4 @@
-package com.example.yutuyun;
+package com.example.runner;
 
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -13,17 +13,18 @@ import com.alibaba.fastjson.JSONObject;
 import com.example.converter.ListIntegerConverter;
 import com.example.entity.Spread;
 import com.example.entity.User;
+import com.example.proxy.Proxy;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-@SpringBootApplication
-public class YuTuYunApplication implements ApplicationRunner {
+@Component
+public class YuTuYunApplicationRunner implements ApplicationRunner {
 
     private final Log log = LogFactory.get();
     private final String loginUrl = "https://tv.ytuy.cn/mer/login";
@@ -33,15 +34,15 @@ public class YuTuYunApplication implements ApplicationRunner {
     private int page;
     private final List<User> userList = new ArrayList<>();
 
-    public static void main(String[] args) {
-        SpringApplication.run(YuTuYunApplication.class, args);
-    }
+    @Resource
+    Proxy proxy;
+
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
         login();
         queryPageNum();
-        queryData();
+        queryDataCollection();
         handleData();
         outputExcel();
     }
@@ -67,7 +68,7 @@ public class YuTuYunApplication implements ApplicationRunner {
         return count;
     }
 
-    private void login() {
+    public void login() {
         JSONObject loginResultJsonObject;
         Scanner scanner = new Scanner(System.in);
         do {
@@ -100,7 +101,7 @@ public class YuTuYunApplication implements ApplicationRunner {
         log.info("登录成功");
     }
 
-    private void queryPageNum() {
+    public void queryPageNum() {
         String numResult = HttpRequest
                 .get(queryUrl)
                 .header("X-Token", token)
@@ -118,42 +119,17 @@ public class YuTuYunApplication implements ApplicationRunner {
         log.info("共 " + page + " 页记录，每页 " + pageNum + "条");
     }
 
-    private void queryData() throws InterruptedException {
+    public void queryDataCollection() throws InterruptedException {
         for (int i = 1; i <= page; i++) {
-            for (int time = 1; time <= 4; time++) {
-                try {
-                    log.info("开始查询第 " + i + " 页记录");
-                    String result = HttpRequest
-                            .get(queryUrl)
-                            .header("X-Token", token)
-                            .form("page", i)
-                            .form("limit", pageNum)
-                            .execute()
-                            .body();
-                    JSONObject resultJsonObject = JSONObject.parseObject(result);
-                    int status = resultJsonObject.getIntValue("status");
-                    if (status != 200) {
-                        log.error(resultJsonObject.getString("message"));
-                    }
-                    List<User> newUserList = resultJsonObject.getJSONObject("data").getJSONArray("list").toJavaList(User.class);
-                    userList.addAll(newUserList);
-                    log.info("第 " + i + " 页记录查询完毕，等待 2 秒");
-                    Thread.sleep(2000);
-                    break;
-                } catch (Exception e) {
-                    log.error("第 " + i + " 页记录查询出错");
-                    if (time == 4) {
-                        throw new RuntimeException(e.getCause());
-                    } else {
-                        log.info("等待 " + 5 * time + " 秒后开始重试第 " + time + " 次，共 " + 3 + " 次");
-                        Thread.sleep(5000 * time);
-                    }
-                }
-            }
+            log.info("开始查询第 " + i + " 页记录");
+            List<User> newUserList = proxy.queryDataList(i, queryUrl, token, pageNum, log);
+            userList.addAll(newUserList);
+            log.info("第 " + i + " 页记录查询完毕，等待 2 秒");
+            Thread.sleep(2000);
         }
     }
 
-    private void handleData() {
+    public void handleData() {
         log.info("开始处理查询的数据");
         //拼接用户信息和推广人信息到同一个实体里
         for (User user : userList) {
@@ -224,7 +200,7 @@ public class YuTuYunApplication implements ApplicationRunner {
         }
     }
 
-    private void outputExcel() {
+    public void outputExcel() {
         log.info("开始输出Excel");
         String yyyyMMddHHmmss = DateUtil.format(DateUtil.date(), "yyyyMMddHHmmss");
         String file = ".\\钰兔云" + yyyyMMddHHmmss + ".xlsx";
